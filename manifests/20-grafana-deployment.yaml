@@ -1,3 +1,38 @@
+# https://github.com/knative/serving/tree/b07f08d03072935688a6db292da6c68f502948e4/config/monitoring/metrics/prometheus
+# piece it back together
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  labels:
+    serving.knative.dev/release: devel
+data:
+  prometheus.yaml: |+
+    datasources:
+     - name: prometheus
+       type: prometheus
+       access: proxy
+       org_id: 1
+       url: http://prometheus.ksvcmon.svc.cluster.local:8080
+       version: 1
+       editable: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  labels:
+    serving.knative.dev/release: devel
+data:
+  dashboards.yaml: |+
+    - name: 'knative'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /etc/grafana/provisioning/dashboards/knative
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -26,11 +61,26 @@ spec:
         volumeMounts:
         - name: grafana-volume
           mountPath: /var/lib/grafana
+        - name: grafana-dashboards
+          mountPath: /etc/grafana/provisioning/dashboards
+        - name: grafana-dashboard-definition-knative
+          mountPath: /etc/grafana/provisioning/dashboards/knative
+        - name: grafana-datasources
+          mountPath: /etc/grafana/provisioning/datasources
 
       volumes:
       - name: grafana-volume
         persistentVolumeClaim:
           claimName: pvc-grafana
+      - name: grafana-dashboard-definition-knative
+        configMap:
+          name: grafana-dashboard-definition-knative
+      - name: grafana-dashboards
+        configMap:
+          name: grafana-dashboards
+      - name: grafana-datasources
+        configMap:
+          name: grafana-datasources
 ---
 apiVersion: v1
 kind: Service

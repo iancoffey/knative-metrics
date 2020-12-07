@@ -10,7 +10,6 @@ metadata:
     chart: prometheus-11.16.2
     heritage: Helm
   name: prometheus
-  namespace: istio-system
   annotations:
     {}
 ---
@@ -25,7 +24,6 @@ metadata:
     chart: prometheus-11.16.2
     heritage: Helm
   name: prometheus
-  namespace: istio-system
 data:
   alerting_rules.yml: |
     {}
@@ -284,10 +282,102 @@ data:
         - __meta_kubernetes_pod_phase
       scrape_interval: 5m
       scrape_timeout: 30s
+    # Knative related metrics
+    - job_name: controller
+      scrape_interval: 3s
+      scrape_timeout: 3s
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_pod_label_app, __meta_kubernetes_pod_container_port_name]
+        action: keep
+        regex: knative-serving;controller;metrics
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+    # Autoscaler endpoint
+    - job_name: autoscaler
+      scrape_interval: 3s
+      scrape_timeout: 3s
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_pod_label_app, __meta_kubernetes_pod_container_port_name]
+        action: keep
+        regex: knative-serving;autoscaler;metrics
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+    # Activator pods
+    - job_name: activator
+      scrape_interval: 3s
+      scrape_timeout: 3s
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_pod_label_app, __meta_kubernetes_pod_container_port_name]
+        action: keep
+        regex: knative-serving;activator;metrics-port
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+    # Webhook pods
+    - job_name: webhook
+      scrape_interval: 3s
+      scrape_timeout: 3s
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_pod_label_role, __meta_kubernetes_pod_container_port_name]
+        action: keep
+        regex: knative-serving;webhook;metrics-port
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+    # Queue proxy metrics
+    - job_name: queue-proxy
+      scrape_interval: 3s
+      scrape_timeout: 3s
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_pod_label_serving_knative_dev_revision, __meta_kubernetes_pod_container_port_name]
+        action: keep
+        regex: .+;user-metrics
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+
   recording_rules.yml: |
     {}
   rules: |
     {}
+
 ---
 # Source: prometheus/templates/server/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -345,7 +435,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: prometheus
-    namespace: istio-system
+    namespace: ksvcmon
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -362,7 +452,7 @@ metadata:
     chart: prometheus-11.16.2
     heritage: Helm
   name: prometheus
-  namespace: istio-system
+  namespace: ksvcmon
 spec:
   ports:
     - name: http
@@ -387,7 +477,7 @@ metadata:
     chart: prometheus-11.16.2
     heritage: Helm
   name: prometheus
-  namespace: istio-system
+  namespace: ksvcmon
 spec:
   selector:
     matchLabels:
